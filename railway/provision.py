@@ -121,7 +121,9 @@ def add_volume(service, mount):
 # ---------------------------------------------------------------- datastores
 print("datastores:")
 create("mariadb", image="mariadb:11.8",
-       start="mariadbd --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --skip-character-set-client-handshake",
+       # docker-entrypoint.sh switches to the mysql user before exec'ing mariadbd;
+       # calling mariadbd directly runs as root and MariaDB refuses to start.
+       start="docker-entrypoint.sh mariadbd --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --skip-character-set-client-handshake",
        variables={"MYSQL_ROOT_PASSWORD": sec["DB_ROOT_PASSWORD"]})
 add_volume("mariadb", "/var/lib/mysql")
 
