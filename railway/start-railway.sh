@@ -45,8 +45,9 @@ if [ ! -d "sites/$SITE_NAME" ]; then
     echo "Site $SITE_NAME does not exist — creating."
     CREATE_SITE=1
 else
-    # Test DB connection by checking if the site's database exists
-    SITE_DB=$(bench --site "$SITE_NAME" get-config db_name 2>/dev/null || echo "")
+    # Read db_name directly from site_config.json (bench get-config needs DB access)
+    SITE_CONFIG="sites/$SITE_NAME/site_config.json"
+    SITE_DB=$(python3 -c "import json; print(json.load(open('$SITE_CONFIG')).get('db_name',''))" 2>/dev/null || echo "")
     if [ -n "$SITE_DB" ]; then
         if mysql -h mariadb.railway.internal -P 3306 -u root -p"$DB_ROOT_PASSWORD" \
             -e "USE \`$SITE_DB\`; SELECT 1;" 2>/dev/null; then
