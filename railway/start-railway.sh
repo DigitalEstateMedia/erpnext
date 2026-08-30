@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 # If running as root, fix volume ownership and re-exec as frappe.
 # Railway mounts volumes as root; the image ENTRYPOINT (main-entrypoint.sh)
