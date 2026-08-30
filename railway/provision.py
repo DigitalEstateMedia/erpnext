@@ -136,10 +136,10 @@ create("redis-queue", image="redis:8-alpine")
 # ---------------------------------------------------------------- erpnext + domain
 print("erpnext:")
 erpnext = create("erpnext", repo=GH_REPO, root="railway", variables={
-    "SITE_NAME": "erpnext",
+    "SITE_NAME": "site1.local",
     "DB_ROOT_PASSWORD": "${{mariadb.MYSQL_ROOT_PASSWORD}}",
     "ADMIN_PASSWORD": sec["ADMIN_PASSWORD"],
-    "FRAPPE_SITE_NAME_HEADER": "erpnext",
+    "FRAPPE_SITE_NAME_HEADER": "site1.local",
     "PORT": "8080"})
 add_volume("erpnext", "/home/frappe/frappe-bench/sites")
 
