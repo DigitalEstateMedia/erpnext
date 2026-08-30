@@ -46,7 +46,9 @@ if [ ! -d "sites/$SITE_NAME" ]; then
         --install-app erpnext \
         --set-default
 else
-    bench --site "$SITE_NAME" migrate
+    # Migrate on existing site; non-fatal — the site may already be up-to-date
+    # or the DB connection may have a transient issue. Supervisord starts regardless.
+    bench --site "$SITE_NAME" migrate || echo "WARNING: migrate failed, starting with existing site state"
 fi
 
 # 5. Public host name (emailed links and portal URLs are absolute-correct)
