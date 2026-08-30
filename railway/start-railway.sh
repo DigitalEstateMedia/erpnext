@@ -37,25 +37,52 @@ bench set-config -g redis_queue redis://redis-queue.railway.internal:6379
 bench set-config -g redis_socketio redis://redis-queue.railway.internal:6379
 bench set-config -gp socketio_port 9000
 
-# 4. Create site on first boot, otherwise migrate
+# 4. Create or recover the site.
+#    On a fresh volume, create it. On a subsequent boot, verify the DB
+#    connection works — if it doesn't (e.g. MariaDB volume was wiped),
+#    drop the stale site directory and recreate.
 if [ ! -d "sites/$SITE_NAME" ]; then
+    echo "Site $SITE_NAME does not exist — creating."
+    CREATE_SITE=1
+else
+    # Test DB connection by checking if the site's database exists
+    SITE_DB=$(bench --site "$SITE_NAME" get-config db_name 2>/dev/null || echo "")
+    if [ -n "$SITE_DB" ]; then
+        if mysql -h mariadb.railway.internal -P 3306 -u root -p"$DB_ROOT_PASSWORD" \
+            -e "USE \`$SITE_DB\`; SELECT 1;" 2>/dev/null; then
+            echo "Site $SITE_NAME DB connection OK — skipping recreation."
+            CREATE_SITE=0
+        else
+            echo "Site $SITE_NAME DB connection failed — recreating site."
+            rm -rf "sites/$SITE_NAME"
+            CREATE_SITE=1
+        fi
+    else
+        echo "Could not read site config — recreating site."
+        rm -rf "sites/$SITE_NAME"
+        CREATE_SITE=1
+    fi
+fi
+
+if [ "$CREATE_SITE" = "1" ]; then
+    # Drop any stale database from a previous incarnation
+    SITE_DB="_$(echo -n "$SITE_NAME" | md5sum | cut -c1-15)"
+    mysql -h mariadb.railway.internal -P 3306 -u root -p"$DB_ROOT_PASSWORD" \
+        -e "DROP DATABASE IF EXISTS \`$SITE_DB\`;" 2>/dev/null || true
+
     bench new-site "$SITE_NAME" \
         --db-root-username root \
         --db-root-password "$DB_ROOT_PASSWORD" \
         --admin-password "$ADMIN_PASSWORD" \
         --install-app erpnext \
         --set-default
-else
-    # Migrate on existing site; non-fatal — the site may already be up-to-date
-    # or the DB connection may have a transient issue. Supervisord starts regardless.
-    bench --site "$SITE_NAME" migrate || echo "WARNING: migrate failed, starting with existing site state"
+
+    # 5. Public host name (emailed links and portal URLs are absolute-correct)
+    bench --site "$SITE_NAME" set-config host_name "https://$RAILWAY_PUBLIC_DOMAIN"
+
+    # 6. Enable scheduler
+    bench --site "$SITE_NAME" scheduler enable
 fi
-
-# 5. Public host name (emailed links and portal URLs are absolute-correct)
-bench --site "$SITE_NAME" set-config host_name "https://$RAILWAY_PUBLIC_DOMAIN"
-
-# 6. Enable scheduler
-bench --site "$SITE_NAME" scheduler enable
 
 # 7. Hand off to supervisord (runs all six processes)
 exec supervisord -c /home/frappe/supervisord.conf
