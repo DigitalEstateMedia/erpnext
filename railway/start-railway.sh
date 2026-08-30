@@ -51,16 +51,22 @@ if [ ! -d "sites/$SITE_NAME" ]; then
     echo "Site $SITE_NAME does not exist — creating."
     CREATE_SITE=1
 else
-    # Read db_name directly from site_config.json (bench get-config needs DB access)
+    # Read db_name and db_password directly from site_config.json
     SITE_CONFIG="sites/$SITE_NAME/site_config.json"
     SITE_DB=$(python3 -c "import json; print(json.load(open('$SITE_CONFIG')).get('db_name',''))" 2>/dev/null || echo "")
-    if [ -n "$SITE_DB" ]; then
-        if mysql -h mariadb.railway.internal -P 3306 -u root -p"$DB_ROOT_PASSWORD" \
-            -e "USE \`$SITE_DB\`; SELECT 1;" 2>/dev/null; then
+    SITE_DB_PASSWORD=$(python3 -c "import json; print(json.load(open('$SITE_CONFIG')).get('db_password',''))" 2>/dev/null || echo "")
+    if [ -n "$SITE_DB" ] && [ -n "$SITE_DB_PASSWORD" ]; then
+        # Test connection as the SITE's DB user (not root) — this catches
+        # host-scope mismatches that root-only checks miss
+        if mysql -h mariadb.railway.internal -P 3306 -u "$SITE_DB" -p"$SITE_DB_PASSWORD" \
+            -e "SELECT 1;" 2>/dev/null; then
             echo "Site $SITE_NAME DB connection OK — skipping recreation."
             CREATE_SITE=0
         else
-            echo "Site $SITE_NAME DB connection failed — recreating site."
+            echo "Site $SITE_NAME DB user connection failed — recreating site."
+            # Drop the stale database and user
+            mysql -h mariadb.railway.internal -P 3306 -u root -p"$DB_ROOT_PASSWORD" \
+                -e "DROP DATABASE IF EXISTS \`$SITE_DB\`; DROP USER IF EXISTS '$SITE_DB';" 2>/dev/null || true
             rm -rf "sites/$SITE_NAME"
             CREATE_SITE=1
         fi
