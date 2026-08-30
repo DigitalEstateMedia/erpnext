@@ -24,6 +24,11 @@ wait-for-it mariadb.railway.internal:3306 -t 120
 # 2. App list consumed by Frappe during site creation
 ls -1 apps > sites/apps.txt
 
+# 2b. Ensure common_site_config.json exists (fresh volume has none)
+if [ ! -f sites/common_site_config.json ]; then
+    echo '{}' > sites/common_site_config.json
+fi
+
 # 3. Global bench config (db + redis wiring via Railway private DNS)
 bench set-config -g db_host mariadb.railway.internal
 bench set-config -g db_port 3306
