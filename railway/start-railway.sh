@@ -1,7 +1,16 @@
 #!/bin/bash
 set -e
 
-# --- required env ---------------------------------------------------------
+# If running as root, fix volume ownership and re-exec as frappe.
+# Railway mounts volumes as root; the image ENTRYPOINT (main-entrypoint.sh)
+# creates the assets symlink as root (which works), then execs this script.
+# We chown the sites volume and drop to frappe for all bench operations.
+if [ "$(id -u)" = "0" ]; then
+    chown -R frappe:frappe /home/frappe/frappe-bench/sites
+    exec su -s /bin/bash frappe -p -c "exec /usr/local/bin/start-railway.sh"
+fi
+
+# --- now running as frappe ------------------------------------------------
 : "${SITE_NAME:?SITE_NAME is required}"
 : "${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}"
 : "${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}"

@@ -120,10 +120,13 @@ def add_volume(service, mount):
 
 # ---------------------------------------------------------------- datastores
 print("datastores:")
-create("mariadb", image="mariadb:11.8",
-       # docker-entrypoint.sh switches to the mysql user before exec'ing mariadbd;
-       # calling mariadbd directly runs as root and MariaDB refuses to start.
-       start="docker-entrypoint.sh mariadbd --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --skip-character-set-client-handshake",
+# MariaDB: build from our repo (railway/mariadb/) so charset config is baked in.
+# Railway does not run the image ENTRYPOINT, so we can't pass charset flags as a
+# start command — mariadbd would run as root and refuse to start. The custom
+# Dockerfile adds charset.cnf to /etc/mysql/conf.d/, and the start command calls
+# the entrypoint script explicitly to handle user switching + DB initialization.
+create("mariadb", repo=GH_REPO, root="railway/mariadb",
+       start="/usr/local/bin/docker-entrypoint.sh mariadbd",
        variables={"MYSQL_ROOT_PASSWORD": sec["DB_ROOT_PASSWORD"]})
 add_volume("mariadb", "/var/lib/mysql")
 
