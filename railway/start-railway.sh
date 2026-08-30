@@ -1,5 +1,7 @@
 #!/bin/bash
-set -ex
+set -e
+
+echo "=== start-railway.sh: BEGIN (uid=$(id -u)) ==="
 
 # If running as root, fix volume ownership and re-exec as frappe.
 # Railway mounts volumes as root; the image ENTRYPOINT (main-entrypoint.sh)
@@ -19,10 +21,14 @@ fi
 cd /home/frappe/frappe-bench
 
 # 1. Wait for MariaDB
+echo "=== waiting for MariaDB ==="
 wait-for-it mariadb.railway.internal:3306 -t 120
+echo "=== MariaDB is up ==="
 
 # 2. App list consumed by Frappe during site creation
+echo "=== writing apps.txt ==="
 ls -1 apps > sites/apps.txt
+echo "=== apps.txt written ==="
 
 # 2b. Ensure common_site_config.json exists (fresh volume has none)
 if [ ! -f sites/common_site_config.json ]; then
