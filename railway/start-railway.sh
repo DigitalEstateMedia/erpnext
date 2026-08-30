@@ -81,6 +81,7 @@ if [ "$CREATE_SITE" = "1" ]; then
         --db-root-username root \
         --db-root-password "$DB_ROOT_PASSWORD" \
         --admin-password "$ADMIN_PASSWORD" \
+        --mariadb-user-host-login-scope=% \
         --install-app erpnext \
         --set-default
 
